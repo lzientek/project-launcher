@@ -5,6 +5,7 @@ const { promises: fs } = remote.require('fs');
 
 export interface Config {
     shell?: string;
+    preRunScript?: string;
     projects: {
         [key: string]: ProjectConfig;
     };

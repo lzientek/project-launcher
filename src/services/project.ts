@@ -3,14 +3,12 @@ import { App } from './app';
 const remote = window.require('electron').remote;
 const { exec } = remote.require('child_process');
 
+export type Actions = 'run' | 'install' | 'init' | 'init-db';
 export interface ProjectConfig {
     name: string;
     path: string;
-    actions: {
+    actions: Record<Actions, string> & {
         run: string;
-        install?: string;
-        init?: string;
-        'init-db'?: string;
     };
     dependencies: string[];
 }
@@ -28,16 +26,16 @@ export class Project {
         this.app = app;
     }
 
-    execute(action: 'install'): void {
+    execute(action: Actions): void {
         this.killProject();
         const env = Object.entries(process.env)
             .filter(([n]) => !n.startsWith('npm'))
             .reduce((r, [k, v]) => ({ ...r, [k]: v }), {});
-        console.log('env', env);
-        const childProcess = exec(this.config.actions[action], {
+
+        const childProcess = exec(this.getSh(action), {
             cwd: this.config.path,
             shell: this.app.config.shell || process.env.SHELL,
-            env,
+            env: env,
         });
 
         childProcess.stdout.on('data', (data: string) => this.addExecLogs(action, data));
@@ -73,6 +71,8 @@ export class Project {
         this.childProcess?.kill('SIGTERM');
     }
 
+    // #region private helper
+
     private addLogs(data: string) {
         this.logs += data;
         this.onNewLogs ? this.onNewLogs(data) : console.log(this.config.name, data);
@@ -81,4 +81,12 @@ export class Project {
     private addExecLogs(action: string, data: string) {
         this.addLogs(`${action} | ${data}`);
     }
+
+    private getSh(action: Actions) {
+        return this.app.config.preRunScript
+            ? `${this.app.config.preRunScript}; ${this.config.actions[action]}`
+            : this.config.actions[action];
+    }
+
+    // #endregion
 }
